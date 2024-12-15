@@ -1,5 +1,7 @@
-# CBB575-G8
-Final project for CBB575
+# Soil Properties Drive Tissue-Specific Gene Expression in Miscanthus sinensis
+Final project for CBB575 Group 8
+Group members: Marlene Li, Ethan Burns, Pei-Wei Sun, and Zhenyang Zou (authors ordered by the workflow of the analyses)
+
 ## SNP_call_and_GWAS
 This part contains the key files necessary for identifying SNPs, conducting GWAS, mapping significant variants to genes, and performing enrichment analysis. Please follow the order below:
 
