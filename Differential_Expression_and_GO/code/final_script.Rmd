@@ -1,0 +1,193 @@
+---
+title: "final_script"
+output: html_document
+date: "2024-12-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(DESeq2)
+library(tidyverse)
+library(ggrepel)
+options(scipen = 999)
+```
+
+```{r}
+### Reading in data
+df <- read.csv("/gpfs/gibbs/project/coughlan/ps2327/raw_data/counts/counts_with_chr_and_length.csv", check.names = FALSE)
+
+df <- df %>% select(-c(Chr, Length))
+### Moving gene names to rownames and removing old column
+rownames(df) <- df$Geneid
+df <- df %>% select(-Geneid)
+#changing colnames
+nms <- colnames(df)
+for(i in 1:length(nms)){
+ nms[i] <- sub("_.*", "", nms[i])
+}
+colnames(df) <- nms
+### Making meta data tibble
+meta <- tibble(tissue = 1:60)
+### Adding names of samples
+meta <- meta %>% mutate(name = as.factor(colnames(df)))
+### Changing tissue columns to names of tissues
+meta <- meta %>% mutate(tissue = case_when(
+                                             str_detect(name, "L") ~ as.factor("leaf"),
+                                             str_detect(name, "S") ~ as.factor("stem"),
+                                             str_detect(name, "R") ~ as.factor("root")))
+### Adding a column for location
+meta <- meta %>% mutate(location = as.factor(substr(name, 1, str_length(name) - 1)))
+### Adding columns to allow for comparison of each tissue vs. the other two
+meta <- meta %>% mutate(lf = as.factor(tissue == "leaf"),
+                         rt = as.factor(tissue == "root"),
+                         sm = as.factor(tissue == "stem"))
+
+### relevel grouping variables
+meta$rt <- relevel(meta$rt, "FALSE")
+meta$sm <- relevel(meta$sm, "FALSE")
+meta$lf <- relevel(meta$lf, "FALSE")
+```
+
+```{r}
+# loading in data
+plant <- DESeqDataSetFromMatrix(countData = df,
+                                 colData = meta,
+                                 design = ~  tissue)
+
+### Checking which genes are lowly expressed
+not_low <- rowSums(df) >= 10
+
+# Removing lowly expressed genes
+plant <- plant[not_low, ]
+
+### Setting up DESeq object
+DEX_plant <- DESeq(plant)
+
+## log transforming and making PCA plot before looking at comparisons done
+log_DEX_plant <- rlog(DEX_plant)
+plotPCA(log_DEX_plant , intgroup = "tissue")
+pca <- plotPCA(log_DEX_plant, intgroup = "tissue")
+
+
+resultsNames(DEX_plant)
+
+```
+
+```{r}
+comps <- c("lf", "sm", "rt")
+###dir <- "/gpfs/gibbs/project/coughlan/ps2327/raw_data/dge_lists/"
+###data <- paste(dir, c("leaf.csv", "stem.csv", "root.csv"), sep = "")
+###dge <- list()
+res <- tibble()
+for (i in 1:3){
+  print("We are on iteration")
+  print(i)
+  
+  #Making note of which tissue this is
+  key <- comps[i]
+  
+  ### Reading in data/metadata and setting up design
+  plant <- DESeqDataSetFromMatrix(countData = df,
+                                 colData = meta,
+                                 design = formula(paste("~", key)))
+
+  ### Checking which genes are lowly expressed
+  not_low <- rowSums(df) >= 10
+
+  # Removing lowly expressed genes
+  plant <- plant[not_low, ]
+
+  ###  Making DESeq object
+  DEX_plant <- DESeq(plant)
+
+  ### Log transforming
+  log_DEX_plant <- rlog(DEX_plant)
+  
+  ### Making PCA plot
+  plotPCA(log_DEX_plant, intgroup = key)
+
+  ### Seeing which comparisons are being done
+  resultsNames(DEX_plant)
+  
+  ### Saving DGE results
+  temp <- results(DEX_plant, 
+                contrast = list(paste(key, "_TRUE_vs_FALSE", sep = "")))
+  
+  genes <- rownames(temp)
+  
+  temp <- as_tibble(temp) %>% mutate(gene = genes, tissue = comps[i])
+  
+  res <- rbind(res, temp)
+  
+  ###dge[[i]] <- res
+  #### write.csv(res, data[i], col.names = TRUE, row.names = FALSE)
+}
+
+```
+
+```{r}
+### Adding whether points are significant
+res <- res %>% mutate(class = case_when(padj < 0.05 & log2FoldChange > 0.5 ~ "Upregulated",
+                                          padj < 0.05 & log2FoldChange < -0.5 ~ "Downregulated",
+                                         TRUE ~ "Non-Significant"))
+res <- res %>% mutate(lab = case_when(
+                      class == "Upregulated" ~ gene,
+                      class == "Downregulated" ~ gene,
+                      TRUE ~ NA))
+
+
+### Removing missing data and graphing
+res <- res %>% filter(is.na(padj) == FALSE)
+
+res %>% filter(tissue == "rt") %>% ggplot() + geom_point(aes(x = log2FoldChange, y = -log10(padj), color = class))  +   scale_y_continuous(limits = c(0, 200)) + ggtitle("Root") + xlab("Average Log2 Fold Change") + ylab("Adjusted p-value (-log10)") + xlim(-27, 12)
+
+res %>% filter(tissue == "lf") %>% ggplot() + geom_point(aes(x = log2FoldChange, y = -log10(padj), color = class))  +   scale_y_continuous(limits = c(0, 200)) + ggtitle("Leaf") + xlab("Average Log2 Fold Change") + ylab("Adjusted p-value (-log10)") + xlim(-27, 12)
+
+res %>% filter(tissue == "sm") %>% ggplot() + geom_point(aes(x = log2FoldChange, y = -log10(padj), color = class))  +   scale_y_continuous(limits = c(0, 200)) + ggtitle("Stem") + xlab("Average Log2 Fold Change") + ylab("Adjusted p-value (-log10)") + xlim(-27, 12)
+
+```
+
+```{r}
+### Importing gene names for orthologues in the model organism arabadopsis and tidying them 
+converted <- read.csv("/gpfs/gibbs/project/coughlan/ps2327/raw_data/new_gene.csv", header = FALSE)
+converted <- converted %>% separate(col = V1, sep = "\t", into = c("gene", "ara"))
+converted <- converted %>% mutate(gene = paste(gene, ".v7.1", sep = "")) %>% filter(ara != "None")
+
+#### Joining DGE data with new orthologue gene names from arabadopsis
+
+ara_leaf <- res %>% filter(class == "Upregulated" & is.na(lab) == FALSE & tissue == "lf")
+ara_leaf <- ara_leaf %>% left_join(converted, by = "gene") %>% filter(is.na(ara) == FALSE) %>% arrange(desc(log2FoldChange)) %>% select(ara) %>% group_by(ara) %>% filter(row_number() == 1) %>% ungroup()
+
+ara_root <- res %>% filter(class == "Upregulated" & is.na(lab) == FALSE & tissue == "rt")
+ara_root <- ara_root %>% left_join(converted, by = "gene") %>% filter(is.na(ara) == FALSE) %>% arrange(desc(log2FoldChange)) %>% select(ara) %>% group_by(ara) %>% filter(row_number() == 1) %>% ungroup() 
+
+ara_stem <- res %>% filter(class == "Upregulated" & is.na(lab) == FALSE & tissue == "sm")
+ara_stem <- ara_stem %>% left_join(converted, by = "gene") %>% filter(is.na(ara) == FALSE) %>% arrange(desc(log2FoldChange)) %>% select(ara) %>% group_by(ara) %>% filter(row_number() == 1) %>% ungroup()
+
+#### Writing .csv files for the names of upregulated genes in each tissue. These will be used in g:Profiler
+
+write.table(ara_leaf, "/home/cbb575_ecb86/final_project/leaf.csv", sep = ",",  col.names=FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(ara_root, "/home/cbb575_ecb86/final_project/root.csv", sep = ",",  col.names=FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(ara_stem, "/home/cbb575_ecb86/final_project/stem.csv", sep = ",",  col.names=FALSE, row.names = FALSE, quote = FALSE)
+
+
+
+### Reading in data from g:Profiler
+leafgo <- read.csv("/home/cbb575_ecb86/final_project/leaf_go.csv")
+rootgo <- read.csv("/home/cbb575_ecb86/final_project/root_go.csv")
+stemgo <- read.csv("/home/cbb575_ecb86/final_project/stem_go.csv")
+
+
+### Making Graphs
+leafgo %>% ggplot(aes(x = source, y = negative_log10_of_adjusted_p_value, color = source)) + geom_point(aes(color = source), position = position_jitter(seed = 1)) + xlab("GO Type") + ylab("Adjusted p-value (-log10)") + ggtitle("Leaf") + geom_text_repel(aes(label = term_name), position = position_jitter(seed = 1), size = 2.5, max.overlaps = getOption("ggrepel.max.overlaps", default = 10), min.segment.length = 0.2, max.overlap=100, force_pull = 10, force = 0.3)
+
+stemgo %>% ggplot(aes(x = source, y = negative_log10_of_adjusted_p_value, color = source)) + geom_point(aes(color = source), position = position_jitter(seed = 1)) + xlab("GO Type") + ylab("Adjusted p-value (-log10)") + ggtitle("Stem") + geom_text_repel(aes(label = term_name), position = position_jitter(seed = 1), size = 2.5, max.overlaps = getOption("ggrepel.max.overlaps", default = 10), min.segment.length = 0.2, max.overlap=100, force_pull = 10, force = 0.3)
+
+rootgo %>% ggplot(aes(x = source, y = negative_log10_of_adjusted_p_value, color = source)) + geom_point(aes(color = source), position = position_jitter(seed = 1)) + xlab("GO Type") + ylab("Adjusted p-value (-log10)") + ggtitle("Root") + geom_text_repel(aes(label = term_name), position = position_jitter(seed = 1), size = 2.5, max.overlaps = getOption("ggrepel.max.overlaps", default = 10), min.segment.length = 0.2, max.overlap=100, force_pull = 10, force = 0.3)
+```
+
