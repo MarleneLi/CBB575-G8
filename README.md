@@ -3,6 +3,8 @@ Final project for CBB575 Group 8
 
 Group members: Marlene Li, Ethan Burns, Pei-Wei Sun, and Zhenyang Zou (authors ordered by the workflow of the analyses)
 
+The following serves as a documentation of the installation and configuration step. You can follow the instructions to reproduce the results.
+
 ## RNAseq_Preprocessing
 This part contains the key files necessary for read cleaning, alignment, quantification, and normalization. Softwares used include Trimmomatic, HISAT2, SAMTool, featureCounts (from Subread), Python, and dSQ, all of which should be available via Yale HPC. `requirements.txt` for the conda environment is also provided. You can run the provided code files in the following order:
 
