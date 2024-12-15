@@ -5,7 +5,13 @@ Group members: Marlene Li, Ethan Burns, Pei-Wei Sun, and Zhenyang Zou (authors o
 
 The following serves as a documentation of the installation and configuration step. You can follow the instructions to reproduce the results.
 
-## RNAseq_Preprocessing
+## Data Availability
+To access the raw data for this project, please run the following code to copy symbolic link:
+```
+ln -s /gpfs/gibbs/project/coughlan/ps2327/raw_data/* /your/target/local/folder/
+```
+
+## RNAseq Preprocessing
 This part contains the key files necessary for read cleaning, alignment, quantification, and normalization. Softwares used include Trimmomatic, HISAT2, SAMTool, featureCounts (from Subread), Python, and dSQ, all of which should be available via Yale HPC. `requirements.txt` for the conda environment is also provided. You can run the provided code files in the following order:
 
 #### 1. Generate input file lists
