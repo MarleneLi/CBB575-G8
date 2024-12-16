@@ -79,6 +79,7 @@ _Configuration Note:_
 * Ensure all tools are available in your PATH or loaded via module load.
 
 ## Differential Expression Analysis and Gene Ontology (GO) Analysis
+#### Dependencies 
 Use additional modules R-bundle-CRAN/2024.06-foss-2022b on the Yale McCleary HPC R studio server to access packages. `DESeq2`, `ggrepel`, and `tidyverse` should all be available through there. R version R/4.4.1-foss-2022b was used. If needed, use the following code to install `DESeq2`.
 
 ```R
@@ -88,6 +89,24 @@ install.packages("BiocManager")
 
 BiocManager::install("DESeq2")
 ```
+#### Execution
+Run the code using Yale McCleary HPC R studio server.
+
+## Co-expression Analysis
+This part analyzes gene expression data to detect co-expression modules, associate them with phenotypic traits, and perform functional enrichment analysis.
+
+#### Dependencies  
+Required R libraries:  
+```R
+install.packages(c("pheatmap", "ggplot2", "UpSetR", "VennDiagram"))
+BiocManager::install("Kumquatum/GWENA")
+```
+#### Execution
+Run the script using R:
+```
+Rscript GWENA.R
+```
+
 ## SNP Call and GWAS
 This part contains the key files necessary for identifying SNPs, conducting GWAS, mapping significant variants to genes, and performing enrichment analysis. Please follow the order below:
 
