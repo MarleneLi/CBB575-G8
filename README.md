@@ -102,10 +102,16 @@ install.packages(c("pheatmap", "ggplot2", "UpSetR", "VennDiagram"))
 BiocManager::install("Kumquatum/GWENA")
 ```
 #### Execution
-Run the script using R:
-```
-Rscript GWENA.R
-```
+There are 6 parts in this R code：
+
+* Part1: Read expression data 
+* Part2: Read phenotype data
+* Part3: Data processing and module construction 
+* Part4: Module information visualization
+* Part5: Phenotype association and visualization
+* Part6: Venn diagram, Upset plot, heatmap, and PCA analysis
+
+Please run this script line-by-line and modify the name of the tissue when trying to work on different datasets, and do not try to run the entire script without specifying tissue names
 
 ## SNP Call and GWAS
 This part contains the key files necessary for identifying SNPs, conducting GWAS, mapping significant variants to genes, and performing enrichment analysis. Please follow the order below:
